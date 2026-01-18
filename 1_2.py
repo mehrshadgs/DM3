@@ -52,10 +52,10 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
     total_demand = sum(demands)
     min_vehicles = int(np.ceil(total_demand / Q))
     
-    print(f"Number of customers: {n_customers}")
-    print(f"Vehicle capacity: {Q}")
-    print(f"Total demand: {total_demand}")
-    print(f"Minimum vehicles needed: {min_vehicles}")
+    # print(f"Number of customers: {n_customers}")
+    # print(f"Vehicle capacity: {Q}")
+    # print(f"Total demand: {total_demand}")
+    # print(f"Minimum vehicles needed: {min_vehicles}")
     
     model = gp.Model("CVRP_TwoIndex")
     model.setParam('TimeLimit', time_limit)
@@ -75,34 +75,31 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
         GRB.MINIMIZE
     )
     
-    # Constraint 1: Each customer is visited exactly once (entering)
+    # Each customer is visited exactly once (entering)
     model.addConstrs(
         (gp.quicksum(x[i, j] for i in range(n_nodes) if i != j) == 1 
          for j in range(1, n_nodes)),
         name="enter"
     )
     
-    # Constraint 2: Each customer is left exactly once (leaving)
+    # Each customer is left exactly once (leaving)
     model.addConstrs(
         (gp.quicksum(x[i, j] for j in range(n_nodes) if i != j) == 1 
-         for i in range(1, n_nodes)),
-        name="leave"
+         for i in range(1, n_nodes))
     )
     
-    # Constraint 3: Number of vehicles leaving depot equals number returning
+    # Number of vehicles leaving depot equals number returning
     model.addConstr(
         gp.quicksum(x[0, j] for j in range(1, n_nodes)) == 
-        gp.quicksum(x[i, 0] for i in range(1, n_nodes)),
-        name="depot_balance"
+        gp.quicksum(x[i, 0] for i in range(1, n_nodes))
     )
     
-    # Constraint 4: At least minimum number of vehicles must be used
+    # At least minimum number of vehicles must be used
     model.addConstr(
-        gp.quicksum(x[0, j] for j in range(1, n_nodes)) >= min_vehicles,
-        name="min_vehicles"
+        gp.quicksum(x[0, j] for j in range(1, n_nodes)) >= min_vehicles
     )
     
-    
+    # this and next one with help of AI
     # u_i - u_j + Q*x_ij <= Q - q_j  for all i in N, j in N\{0}, i != j
     model.addConstrs(
         (u[i] - u[j] + Q * x[i, j] <= Q - demands[j]
@@ -142,6 +139,7 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
         "num_vehicles": 0
     }
     
+    # with help of AI
     if model.status == GRB.OPTIMAL:
         result["status"] = "Optimal"
         result["objective_value"] = model.objVal
@@ -163,7 +161,8 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
             result["gap"] = model.MIPGap * 100
         return result
     
-    # Extract routes from solution
+    # Extract routes from solution 
+    # Ai suggested to use another function
     if model.SolCount > 0:
         routes = extract_routes(x, n_nodes)
         result["routes"] = routes
@@ -172,7 +171,7 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
     return result
 
 
-def extract_routes(x, n_nodes):
+def extract_routes(x, n_nodes): # this function is AI generated
     """
     Extract routes from the solution.
     """
@@ -251,31 +250,13 @@ def simulate_demand_uncertainty(routes, nominal_demands, Q, n_iterations=1000, s
     """
     Simulate demand uncertainty to assess robustness of the solution.
     
-    For each iteration (scenario):
-    1. Draw demand q_tilde[i] uniformly from [0.9*q[i], 1.1*q[i]] for each customer
-    2. Compute capacity violation for each route: max(0, sum(q_tilde) - Q)
-    3. Sum violations over all routes to get total scenario violation
-    
-    Args:
-        routes (list): List of routes, where each route is a list of customer indices
-        nominal_demands (list): Nominal demands for each node (index 0 is depot)
-        Q (int): Vehicle capacity
-        n_iterations (int): Number of simulation iterations (scenarios)
-        seed (int): Random seed for reproducibility (None for random)
-        
-    Returns:
-        dict: Simulation results
     """
-    if seed is not None:
-        np.random.seed(seed)
-    
     # Track statistics per scenario
-    scenario_violations = []  # Total violation per scenario (summed over all routes)
+    scenario_violations = []  #
     
-    print(f"\nRunning {n_iterations} demand uncertainty simulations...")
     
     for k in range(n_iterations):
-        # Step 1: Draw random demand for each customer
+        # Draw random demand for each customer
         # q_tilde[i] ~ Uniform[0.9*q[i], 1.1*q[i]] - continuous uniform
         random_demands = [0.0] * len(nominal_demands)  # depot demand = 0
         
@@ -285,7 +266,7 @@ def simulate_demand_uncertainty(routes, nominal_demands, Q, n_iterations=1000, s
             high = int(np.floor(1.1 * q_i))
             random_demands[i] = np.random.randint(low, high + 1)
         
-        # Step 2 & 3: Compute capacity violations for each route and sum
+        # Compute capacity violations for each route and sum
         scenario_total_violation = 0
         for route in routes:
             route_demand = sum(random_demands[c] for c in route)
@@ -294,31 +275,27 @@ def simulate_demand_uncertainty(routes, nominal_demands, Q, n_iterations=1000, s
         
         scenario_violations.append(scenario_total_violation)
     
-    # Compute statistics
+  
     scenario_violations = np.array(scenario_violations)
     
-    # Number of scenarios with at least one violation
     scenarios_with_violation = np.sum(scenario_violations > 0)
     
     results = {
         "n_iterations": n_iterations,
         "n_routes": len(routes),
-        # Main statistics requested
         "total_scenarios_with_violation": int(scenarios_with_violation),
         "mean_scenario_violation": np.mean(scenario_violations),
         "max_scenario_violation": np.max(scenario_violations),
-        # Additional statistics
         "min_scenario_violation": np.min(scenario_violations),
         "std_scenario_violation": np.std(scenario_violations),
         "percentage_scenarios_with_violation": (scenarios_with_violation / n_iterations) * 100,
-        # Raw data
         "scenario_violations": scenario_violations
     }
     
     return results
 
 
-def print_simulation_results(sim_results):
+def print_simulation_results(sim_results): # this function is AI generated
     """
     Print the simulation results in a formatted way.
     """
@@ -355,7 +332,7 @@ def print_simulation_results(sim_results):
     print(f"  Violations > 25: {np.sum(violations > 25)} scenarios")
 
 
-def save_simulation_to_csv(sim_results, filename):
+def save_simulation_to_csv(sim_results, filename): # this function is AI generated
     """
     Save simulation results to a CSV file.
     
@@ -386,51 +363,33 @@ def save_simulation_to_csv(sim_results, filename):
     print(f"\n  Part (b) results saved to '{filename}'")
 
 
-
-
-
 def solve_cvrp_scenario_based(Q, nominal_demands, dist_matrix, scenarios, time_limit=600):
-    """
-    Solves the scenario-based CVRP using two-index formulation.
-    
-    The routes must be feasible for ALL scenarios in S.
-    For each scenario s, we have load variables u^s that must satisfy capacity constraints.
-    
-    Args:
-        Q (int): Vehicle capacity
-        nominal_demands (list): Nominal demands for each node (index 0 is depot)
-        dist_matrix (list): Distance matrix between all nodes
-        scenarios (list): List of demand scenarios, each is a list of demands
-        time_limit (int): Time limit for the solver in seconds
-        
-    Returns:
-        dict: Results including status, objective value, routes, runtime, and gap
-    """
+    """Solves the scenario-based CVRP. Routes must be feasible for ALL scenarios in S."""
     n_nodes = len(nominal_demands)
     n_customers = n_nodes - 1
     n_scenarios = len(scenarios)
     
-    # Calculate minimum vehicles based on maximum scenario demands
+   
     max_total_demand = max(sum(s) for s in scenarios)
     min_vehicles = int(np.ceil(max_total_demand / Q))
     
-    print(f"\n  Number of scenarios: {n_scenarios}")
-    print(f"  Minimum vehicles needed: {min_vehicles}")
+    # print(f"\n  Number of scenarios: {n_scenarios}")
+    # print(f"  Minimum vehicles needed: {min_vehicles}")
     
     # Create model
     model = gp.Model("CVRP_ScenarioBased")
     model.setParam('TimeLimit', time_limit)
-    model.setParam('OutputFlag', 0)  # Suppress output for cleaner iteration logs
+    model.setParam('OutputFlag', 0)  
     
     # Decision variables
     # x[i,j] = 1 if arc (i,j) is used (same for all scenarios - first-stage decision)
-    x = model.addVars(n_nodes, n_nodes, vtype=GRB.BINARY, name="x")
+    x = model.addVars(n_nodes, n_nodes, vtype=GRB.BINARY)
     
     # u[s,i] = cumulative demand when arriving at customer i under scenario s
     u = {}
     for s in range(n_scenarios):
         for i in range(1, n_nodes):
-            u[s, i] = model.addVar(lb=0, ub=Q, vtype=GRB.CONTINUOUS, name=f"u_{s}_{i}")
+            u[s, i] = model.addVar(lb=0, ub=Q, vtype=GRB.CONTINUOUS)
     
     # Objective: minimize total distance (same for all scenarios)
     model.setObjective(
@@ -439,31 +398,27 @@ def solve_cvrp_scenario_based(Q, nominal_demands, dist_matrix, scenarios, time_l
         GRB.MINIMIZE
     )
     
-    # Constraint (9b): Each customer is left exactly once
+    #  Each customer is left exactly once
     model.addConstrs(
         (gp.quicksum(x[i, j] for j in range(n_nodes) if i != j) == 1 
-         for i in range(1, n_nodes)),
-        name="leave"
+         for i in range(1, n_nodes))
     )
     
-    # Constraint (9c): Each customer is entered exactly once
+    #  Each customer is entered exactly once
     model.addConstrs(
         (gp.quicksum(x[i, j] for i in range(n_nodes) if i != j) == 1 
-         for j in range(1, n_nodes)),
-        name="enter"
+         for j in range(1, n_nodes))
     )
     
     # Depot flow balance
     model.addConstr(
         gp.quicksum(x[0, j] for j in range(1, n_nodes)) == 
-        gp.quicksum(x[i, 0] for i in range(1, n_nodes)),
-        name="depot_balance"
+        gp.quicksum(x[i, 0] for i in range(1, n_nodes))
     )
     
     # Minimum vehicles
     model.addConstr(
-        gp.quicksum(x[0, j] for j in range(1, n_nodes)) >= min_vehicles,
-        name="min_vehicles"
+        gp.quicksum(x[0, j] for j in range(1, n_nodes)) >= min_vehicles
     )
     
     # For EACH scenario s, add capacity constraints
@@ -474,25 +429,21 @@ def solve_cvrp_scenario_based(Q, nominal_demands, dist_matrix, scenarios, time_l
         # u_i^s - u_j^s + Q*x_ij <= Q - q_j^s
         model.addConstrs(
             (u[s, i] - u[s, j] + Q * x[i, j] <= Q - scenario_demands[j]
-             for i in range(1, n_nodes) for j in range(1, n_nodes) if i != j),
-            name=f"mtz_s{s}"
+             for i in range(1, n_nodes) for j in range(1, n_nodes) if i != j)
         )
         
         # Constraint (9d) for arcs from depot
         model.addConstrs(
             (u[s, j] >= scenario_demands[j] + Q * (x[0, j] - 1)
-             for j in range(1, n_nodes)),
-            name=f"mtz_depot_s{s}"
+             for j in range(1, n_nodes))
         )
         
         # Constraint (9e): q_i^s <= u_i^s <= Q
         model.addConstrs(
-            (u[s, i] >= scenario_demands[i] for i in range(1, n_nodes)),
-            name=f"load_lower_s{s}"
+            (u[s, i] >= scenario_demands[i] for i in range(1, n_nodes))
         )
         model.addConstrs(
-            (u[s, i] <= Q for i in range(1, n_nodes)),
-            name=f"load_upper_s{s}"
+            (u[s, i] <= Q for i in range(1, n_nodes))
         )
     
     # Optimize
@@ -599,25 +550,8 @@ def simulate_and_find_worst_scenario(routes, nominal_demands, Q, n_iterations=10
 def run_cutting_plane_algorithm(Q, nominal_demands, dist_matrix, n_iterations=5, time_limit=600):
     """
     Run the cutting-plane algorithm for scenario-based CVRP.
-    
-    Algorithm:
-    1. Initialize S with only the nominal demand
-    2. For each iteration:
-       a. Solve scenario-based CVRP with current S
-       b. Simulate 1000 demand realizations
-       c. Add the worst-case scenario to S if it has violations
-    
-    Args:
-        Q: Vehicle capacity
-        nominal_demands: Nominal demands
-        dist_matrix: Distance matrix
-        n_iterations: Number of cutting-plane iterations
-        time_limit: Time limit per optimization
     """
-    print("\n" + "=" * 70)
-    print("PART 1.2(c): SCENARIO-BASED CVRP WITH CUTTING-PLANE ALGORITHM")
-    print("=" * 70)
-    
+
     n_nodes = len(nominal_demands)
     
     # Initialize scenario set S with only nominal demands
@@ -721,8 +655,8 @@ def run_cutting_plane_algorithm(Q, nominal_demands, dist_matrix, n_iterations=5,
     
     return iteration_results
 
-
-def save_cutting_plane_results_to_csv(results, filename):
+ 
+def save_cutting_plane_results_to_csv(results, filename): # this function is AI generated
     """Save cutting-plane algorithm results to CSV."""
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
@@ -824,73 +758,37 @@ def run_recourse_simulation_from_cutting_plane(cutting_plane_results, nominal_de
     # Save to CSV
     save_recourse_results_to_csv_v2(all_results, "results_1_2e_recourse.csv")
     
-    # Discussion
-    print("\n" + "=" * 70)
-    print("DISCUSSION")
-    print("=" * 70)
-    print("""
-As the cutting-plane algorithm progresses and more scenarios are added to S:
-
-1. PLANNED COSTS INCREASE: The routing costs increase because the routes must 
-   be feasible for more demanding scenarios.
-
-2. RECOURSE COSTS DECREASE: The average cost after recourse decreases as iterations
-   progress, because the more robust solutions require fewer emergency depot returns.
-
-3. TRADE-OFF: Early solutions have lower planned costs but higher recourse costs.
-   Later solutions have higher planned costs but lower recourse costs.
-
-4. ROBUST SOLUTION: The final solution has zero or minimal violations,
-   meaning the extra investment in planned costs pays off by avoiding costly recourse.
-""")
     
     return all_results
 
 
-def save_recourse_results_to_csv_v2(results, filename):
+def save_recourse_results_to_csv_v2(results, filename): # this function is AI generated
     """Save recourse simulation results to CSV."""
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Iteration', 'Num_Scenarios', 'Routing_Costs',
                         'Avg_Cost_Before_Recourse', 'Avg_Cost_After_Recourse',
-                        'Avg_Extra_Cost', 'Scenarios_With_Recourse', 'Pct_With_Recourse',
-                        'Avg_Recourse_Actions'])
+                        'Avg_Extra_Cost', 'Scenarios_With_Recourse', 'Avg_Recourse_Actions'])
         
         for r in results:
+            avg_extra = r['avg_cost_after_recourse'] - r['avg_cost_before_recourse']
             writer.writerow([
                 r['iteration'],
                 r['n_scenarios'],
                 f"{r['routing_costs']:.2f}",
                 f"{r['avg_cost_before_recourse']:.2f}",
                 f"{r['avg_cost_after_recourse']:.2f}",
-                f"{r['avg_extra_cost']:.2f}",
+                f"{avg_extra:.2f}",
                 r['scenarios_with_recourse'],
-                f"{r['pct_with_recourse']:.1f}",
                 f"{r['avg_recourse_actions']:.2f}"
             ])
     
-    print(f"\n  Part (e) results saved to '{filename}'")
+    print(f"\n  Results saved to '{filename}'")
 
 
 def simulate_recourse_policy(routes, nominal_demands, dist_matrix, Q, n_iterations=1000, seed=None):
     """
     Simulate the recourse policy for a given solution over multiple demand scenarios.
-    
-    For each scenario:
-    1. Draw random demands from Uniform[0.9*q_i, 1.1*q_i]
-    2. Execute each route with the return-to-depot recourse policy
-    3. Track costs before and after recourse
-    
-    Args:
-        routes: List of routes from the CVRP solution
-        nominal_demands: Nominal demands for each customer
-        dist_matrix: Distance matrix
-        Q: Vehicle capacity
-        n_iterations: Number of simulation iterations
-        seed: Random seed for reproducibility
-        
-    Returns:
-        dict: Results with average costs before and after recourse
     """
     if seed is not None:
         np.random.seed(seed)
@@ -971,309 +869,6 @@ def simulate_recourse_policy(routes, nominal_demands, dist_matrix, Q, n_iteratio
     }
     
     return results
-
-
-def run_recourse_simulation_with_saved_solutions(Q, nominal_demands, dist_matrix, n_sim_iters=1000):
-    """
-    Simulate recourse policy for the 5 solutions from part (c) using SAVED solutions.
-    
-    This uses the routes that were previously computed in the cutting-plane algorithm
-    to avoid re-running the time-consuming optimizations.
-    """
-    print("\n" + "=" * 70)
-    print("PART 1.2(e): RECOURSE POLICY SIMULATION FOR SAVED SOLUTIONS FROM (c)")
-    print("=" * 70)
-    
-    # Saved solutions from Part 1.2(c) cutting-plane algorithm
-    # These are the routes obtained at each iteration
-    saved_solutions = [
-        # Iteration 1: |S|=1, Cost=8742, nominal demands only
-        {
-            "iteration": 1,
-            "n_scenarios": 1,
-            "routing_costs": 8742.0,
-            "routes": [
-                [1, 11, 22, 7, 14, 25],
-                [8, 10, 6, 17, 4, 23],
-                [9],
-                [13, 2, 24, 3, 5, 21],
-                [20, 16, 12, 19, 18, 15]
-            ]
-        },
-        # Iteration 2: |S|=2, Cost=8799
-        {
-            "iteration": 2,
-            "n_scenarios": 2,
-            "routing_costs": 8799.0,
-            "routes": [
-                [1, 14, 7, 22, 11],
-                [6, 4, 17, 20, 10, 25],
-                [8, 9, 23],
-                [15, 18, 19, 12, 16],
-                [21, 5, 3, 24, 2, 13]
-            ]
-        },
-        # Iteration 3: |S|=3, Cost=9099
-        {
-            "iteration": 3,
-            "n_scenarios": 3,
-            "routing_costs": 9099.0,
-            "routes": [
-                [1, 14, 7, 22, 11],
-                [6, 4, 17, 20, 10, 25],
-                [9, 8, 23],
-                [15, 18, 19, 12, 16],
-                [21, 5, 3, 24, 2, 13]
-            ]
-        },
-        # Iteration 4: |S|=4, Cost=9291 (robust solution)
-        {
-            "iteration": 4,
-            "n_scenarios": 4,
-            "routing_costs": 9291.0,
-            "routes": [
-                [1, 14, 7, 22, 11],
-                [6, 4, 17, 20, 10, 25],
-                [9, 8, 23],
-                [15, 18, 13, 19, 12, 16],
-                [21, 5, 3, 24, 2]
-            ]
-        },
-        # Iteration 5: |S|=4, Cost=9291 (same as iteration 4)
-        {
-            "iteration": 5,
-            "n_scenarios": 4,
-            "routing_costs": 9291.0,
-            "routes": [
-                [1, 14, 7, 22, 11],
-                [6, 4, 17, 20, 10, 25],
-                [9, 8, 23],
-                [15, 18, 13, 19, 12, 16],
-                [21, 5, 3, 24, 2]
-            ]
-        }
-    ]
-    
-    all_iteration_results = []
-    
-    for sol in saved_solutions:
-        iteration = sol["iteration"]
-        routes = sol["routes"]
-        
-        print(f"\n{'='*70}")
-        print(f"ITERATION {iteration}")
-        print(f"{'='*70}")
-        print(f"Number of scenarios |S|: {sol['n_scenarios']}")
-        print(f"Planned routing costs: {sol['routing_costs']:.2f}")
-        
-        # Print routes
-        print(f"\nRoutes:")
-        for idx, route in enumerate(routes, 1):
-            route_demand = sum(nominal_demands[c] for c in route)
-            print(f"  Route {idx}: 0 -> {' -> '.join(map(str, route))} -> 0 (demand: {route_demand}/{Q})")
-        
-        # Simulate recourse policy for this solution
-        print(f"\nSimulating recourse policy (k={n_sim_iters} iterations)...")
-        recourse_results = simulate_recourse_policy(
-            routes=routes,
-            nominal_demands=nominal_demands,
-            dist_matrix=dist_matrix,
-            Q=Q,
-            n_iterations=n_sim_iters,
-            seed=42 + iteration
-        )
-        
-        print(f"\nRecourse Simulation Results:")
-        print(f"  (i)  Average cost BEFORE recourse: {recourse_results['avg_cost_before_recourse']:.2f}")
-        print(f"  (ii) Average cost AFTER recourse:  {recourse_results['avg_cost_after_recourse']:.2f}")
-        print(f"  Average extra cost due to recourse: {recourse_results['avg_cost_after_recourse'] - recourse_results['avg_cost_before_recourse']:.2f}")
-        print(f"  Scenarios requiring recourse: {recourse_results['scenarios_with_recourse']}/{n_sim_iters} ({100*recourse_results['scenarios_with_recourse']/n_sim_iters:.1f}%)")
-        print(f"  Average recourse actions per scenario: {recourse_results['avg_recourse_actions']:.2f}")
-        
-        iter_data = {
-            "iteration": iteration,
-            "n_scenarios": sol["n_scenarios"],
-            "routing_costs": sol["routing_costs"],
-            "routes": routes,
-            "avg_cost_before_recourse": recourse_results['avg_cost_before_recourse'],
-            "avg_cost_after_recourse": recourse_results['avg_cost_after_recourse'],
-            "scenarios_with_recourse": recourse_results['scenarios_with_recourse'],
-            "avg_recourse_actions": recourse_results['avg_recourse_actions']
-        }
-        
-        all_iteration_results.append(iter_data)
-    
-    # Print summary table
-    print("\n" + "=" * 70)
-    print("RECOURSE SIMULATION SUMMARY")
-    print("=" * 70)
-    print(f"\n{'Iter':<6} {'|S|':<5} {'Avg Before':<16} {'Avg After':<16} {'Extra Cost':<14} {'%Recourse':<10}")
-    print("-" * 75)
-    
-    for r in all_iteration_results:
-        avg_extra = r['avg_cost_after_recourse'] - r['avg_cost_before_recourse']
-        pct_recourse = 100 * r['scenarios_with_recourse'] / n_sim_iters
-        print(f"{r['iteration']:<6} {r['n_scenarios']:<5} "
-              f"{r['avg_cost_before_recourse']:<16.2f} {r['avg_cost_after_recourse']:<16.2f} "
-              f"{avg_extra:<14.2f} {pct_recourse:<10.1f}%")
-    
-    # Save to CSV
-    save_recourse_results_to_csv(all_iteration_results, "recourse_simulation_results_1_2e.csv")
-    
-    # Discussion
-    print("\n" + "=" * 70)
-    print("DISCUSSION")
-    print("=" * 70)
-    print("""
-As the cutting-plane algorithm progresses and more scenarios are added to S:
-
-1. PLANNED COSTS INCREASE: The routing costs increase from 8742 to 9291 (6.3% higher)
-   because the routes must be feasible for more demanding scenarios.
-
-2. RECOURSE COSTS DECREASE: The average cost after recourse decreases as iterations
-   progress, because the more robust solutions require fewer emergency depot returns.
-
-3. TRADE-OFF: Early solutions have lower planned costs but higher recourse costs.
-   Later solutions have higher planned costs but lower recourse costs.
-
-4. ROBUST SOLUTION (Iteration 4-5): The final solution has zero or minimal violations,
-   meaning the extra investment in planned costs pays off by avoiding costly recourse.
-""")
-    
-    return all_iteration_results
-
-
-def run_recourse_simulation_for_iterations(Q, nominal_demands, dist_matrix, n_cutting_plane_iters=5, 
-                                            n_sim_iters=1000, time_limit=600):
-    """
-    Run cutting-plane algorithm and simulate recourse policy for each iteration's solution.
-    
-    Returns results for Part 1.2(e): average costs before and after recourse for each solution.
-    """
-    print("\n" + "=" * 70)
-    print("PART 1.2(e): RECOURSE POLICY SIMULATION FOR ALL ITERATIONS")
-    print("=" * 70)
-    
-    n_nodes = len(nominal_demands)
-    
-    # Initialize scenario set S with only nominal demands
-    scenarios = [nominal_demands.copy()]
-    
-    all_iteration_results = []
-    all_recourse_results = []
-    
-    for iteration in range(1, n_cutting_plane_iters + 1):
-        print(f"\n{'='*70}")
-        print(f"ITERATION {iteration}")
-        print(f"{'='*70}")
-        print(f"Current number of scenarios in S: {len(scenarios)}")
-        
-        # Step 1: Solve scenario-based model
-        print(f"\nStep 1: Solving scenario-based CVRP...")
-        result = solve_cvrp_scenario_based(Q, nominal_demands, dist_matrix, scenarios, time_limit)
-        
-        print(f"\n  Status: {result['status']}")
-        print(f"  Routing costs: {result['objective_value']:.2f}" if result['objective_value'] else "  No solution")
-        print(f"  Number of vehicles: {result['num_vehicles']}")
-        
-        if not result['routes']:
-            print("  ERROR: No feasible solution found!")
-            break
-        
-        # Print routes
-        print(f"\n  Routes:")
-        for idx, route in enumerate(result['routes'], 1):
-            route_demand = sum(nominal_demands[c] for c in route)
-            print(f"    Route {idx}: 0 -> {' -> '.join(map(str, route))} -> 0 (demand: {route_demand}/{Q})")
-        
-        # Step 2: Simulate recourse policy for this solution
-        print(f"\nStep 2: Simulating recourse policy (k={n_sim_iters} iterations)...")
-        recourse_results = simulate_recourse_policy(
-            routes=result['routes'],
-            nominal_demands=nominal_demands,
-            dist_matrix=dist_matrix,
-            Q=Q,
-            n_iterations=n_sim_iters,
-            seed=42 + iteration
-        )
-        
-        print(f"\n  Recourse Simulation Results:")
-        print(f"    Average cost BEFORE recourse: {recourse_results['avg_cost_before_recourse']:.2f}")
-        print(f"    Average cost AFTER recourse:  {recourse_results['avg_cost_after_recourse']:.2f}")
-        print(f"    Average extra cost:           {recourse_results['avg_cost_after_recourse'] - recourse_results['avg_cost_before_recourse']:.2f}")
-        print(f"    Scenarios requiring recourse: {recourse_results['scenarios_with_recourse']}/{n_sim_iters}")
-        print(f"    Average recourse actions:     {recourse_results['avg_recourse_actions']:.2f}")
-        
-        # Step 3: Find worst scenario and add to S
-        sim_results, worst_scenario, worst_violation = simulate_and_find_worst_scenario(
-            routes=result['routes'],
-            nominal_demands=nominal_demands,
-            Q=Q,
-            n_iterations=1000,
-            seed=42 + iteration
-        )
-        
-        iter_data = {
-            "iteration": iteration,
-            "n_scenarios": len(scenarios),
-            "routing_costs": result['objective_value'],
-            "routes": result['routes'],
-            "avg_cost_before_recourse": recourse_results['avg_cost_before_recourse'],
-            "avg_cost_after_recourse": recourse_results['avg_cost_after_recourse'],
-            "scenarios_with_recourse": recourse_results['scenarios_with_recourse'],
-            "avg_recourse_actions": recourse_results['avg_recourse_actions']
-        }
-        
-        all_iteration_results.append(iter_data)
-        all_recourse_results.append(recourse_results)
-        
-        if worst_violation > 0:
-            print(f"\nStep 3: Adding worst-case scenario to S (violation: {worst_violation:.2f})")
-            scenarios.append(worst_scenario.copy())
-        else:
-            print(f"\nStep 3: No violations found - solution is robust!")
-    
-    # Print summary table
-    print("\n" + "=" * 70)
-    print("RECOURSE SIMULATION SUMMARY")
-    print("=" * 70)
-    print(f"\n{'Iter':<6} {'|S|':<5} {'Planned Cost':<14} {'Avg Before':<14} {'Avg After':<14} {'Avg Extra':<12} {'#Recourse':<12}")
-    print("-" * 90)
-    
-    for r in all_iteration_results:
-        avg_extra = r['avg_cost_after_recourse'] - r['avg_cost_before_recourse']
-        print(f"{r['iteration']:<6} {r['n_scenarios']:<5} {r['routing_costs']:<14.2f} "
-              f"{r['avg_cost_before_recourse']:<14.2f} {r['avg_cost_after_recourse']:<14.2f} "
-              f"{avg_extra:<12.2f} {r['scenarios_with_recourse']:<12}")
-    
-    # Save to CSV
-    save_recourse_results_to_csv(all_iteration_results, "recourse_simulation_results_1_2e.csv")
-    
-    return all_iteration_results, all_recourse_results
-
-
-def save_recourse_results_to_csv(results, filename):
-    """Save recourse simulation results to CSV."""
-    with open(filename, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Iteration', 'Num_Scenarios', 'Planned_Cost', 
-                        'Avg_Cost_Before_Recourse', 'Avg_Cost_After_Recourse',
-                        'Avg_Extra_Cost', 'Scenarios_With_Recourse', 'Avg_Recourse_Actions'])
-        
-        for r in results:
-            avg_extra = r['avg_cost_after_recourse'] - r['avg_cost_before_recourse']
-            writer.writerow([
-                r['iteration'],
-                r['n_scenarios'],
-                r['routing_costs'],
-                f"{r['avg_cost_before_recourse']:.2f}",
-                f"{r['avg_cost_after_recourse']:.2f}",
-                f"{avg_extra:.2f}",
-                r['scenarios_with_recourse'],
-                f"{r['avg_recourse_actions']:.2f}"
-            ])
-    
-    print(f"\n  Results saved to '{filename}'")
 
 
 def illustrate_recourse_policy(nominal_demands, dist_matrix, Q):
@@ -1423,32 +1018,7 @@ This policy ensures:
     print(f"✓ Only used information available at each step")
 
 
-def run_part_d_only():
-    """Run only part (d) - recourse policy illustration."""
-    Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
-    illustrate_recourse_policy(demands, dist_matrix, Q)
-
-
-def run_part_e_only():
-    """Run only part (e) - recourse simulation with saved solutions from part (c)."""
-    Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
-    run_recourse_simulation_with_saved_solutions(Q, demands, dist_matrix, n_sim_iters=1000)
-
-
 if __name__ == "__main__":
-    import sys
-    
-    # Check for command-line arguments
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "d":
-            # Run only part (d)
-            run_part_d_only()
-            sys.exit(0)
-        elif sys.argv[1] == "e":
-            # Run only part (e) with saved solutions
-            run_part_e_only()
-            sys.exit(0)
-    
     # Read the instance
     Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
     

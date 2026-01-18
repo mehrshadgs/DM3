@@ -1,6 +1,6 @@
-Iteration,Num_Scenarios,Routing_Costs,Avg_Cost_Before_Recourse,Avg_Cost_After_Recourse,Avg_Extra_Cost,Scenarios_With_Recourse,Pct_With_Recourse,Avg_Recourse_Actions
-1,1,8742.00,8742.00,9087.38,345.38,231,23.1,0.25
-2,2,8799.00,8799.00,9228.86,429.86,418,41.8,0.46
-3,3,9105.00,9105.00,9273.12,168.12,148,14.8,0.15
-4,4,9291.00,9291.00,9291.00,0.00,0,0.0,0.00
-5,4,9291.00,9291.00,9292.09,1.09,1,0.1,0.00
+Iteration,Num_Scenarios,Routing_Costs,Avg_Cost_Before_Recourse,Avg_Cost_After_Recourse,Avg_Extra_Cost,Scenarios_With_Recourse,Avg_Recourse_Actions
+1,1,8742.00,8742.00,9089.86,347.86,231,0.25
+2,2,8799.00,8799.00,9244.80,445.80,418,0.46
+3,3,9236.00,9236.00,9410.02,174.02,148,0.15
+4,4,9291.00,9291.00,9291.00,0.00,0,0.00
+5,4,9291.00,9291.00,9292.11,1.11,1,0.00
