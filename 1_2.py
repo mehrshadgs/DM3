@@ -4,6 +4,13 @@ from gurobipy import GRB
 import time
 import csv
 
+# Use of AI
+# Where is Commpleted by AI is indicated in comments,
+# Ai helped with deubgging
+# Print functions and Saving to CSV functions are AI generated mostly
+# part d and e AI helped with idea and implementation
+# Ai helped with reading the instance file
+
 
 def read_cvrp_instance(filename):
     """
@@ -36,14 +43,6 @@ def solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=300):
     """
     Solves CVRP using the classical two-index formulation with MTZ subtour elimination.
     
-    Args:
-        Q (int): Vehicle capacity
-        demands (list): List of demands for each node (index 0 is depot with demand 0)
-        dist_matrix (list): Distance matrix between all nodes
-        time_limit (int): Time limit for the solver in seconds
-        
-    Returns:
-        dict: Results including status, objective value, routes, runtime, and gap
     """
     n_nodes = len(demands)  # Total nodes (depot + customers)
     n_customers = n_nodes - 1  # Number of customers
@@ -559,7 +558,7 @@ def run_cutting_plane_algorithm(Q, nominal_demands, dist_matrix, n_iterations=5,
     
     iteration_results = []
     
-    for iteration in range(1, n_iterations + 1):
+    for iteration in range(1, n_iterations + 1): # this is with help of AI
         print(f"\n{'='*70}")
         print(f"ITERATION {iteration}")
         print(f"{'='*70}")
@@ -638,17 +637,7 @@ def run_cutting_plane_algorithm(Q, nominal_demands, dist_matrix, n_iterations=5,
         
         iteration_results.append(iter_data)
     
-    # Print summary table
-    print("\n" + "=" * 70)
-    print("CUTTING-PLANE ALGORITHM SUMMARY")
-    print("=" * 70)
-    print(f"\n{'Iter':<5} {'|S|':<5} {'Time(s)':<10} {'Gap(%)':<10} {'Cost':<12} {'#Violations':<12} {'Mean Viol':<12} {'Max Viol':<12}")
-    print("-" * 90)
-    
-    for r in iteration_results:
-        print(f"{r['iteration']:<5} {r['n_scenarios']:<5} {r['computing_time']:<10.2f} "
-              f"{r['optimality_gap']:<10.2f} {r['routing_costs']:<12.2f} "
-              f"{r['sim_violations']:<12} {r['sim_mean_violation']:<12.4f} {r['sim_max_violation']:<12.4f}")
+
     
     # Save part (c) results to CSV
     save_cutting_plane_results_to_csv(iteration_results, "results_1_2c_cutting_plane.csv")
@@ -786,6 +775,7 @@ def save_recourse_results_to_csv_v2(results, filename): # this function is AI ge
     print(f"\n  Results saved to '{filename}'")
 
 
+
 def simulate_recourse_policy(routes, nominal_demands, dist_matrix, Q, n_iterations=1000, seed=None):
     """
     Simulate the recourse policy for a given solution over multiple demand scenarios.
@@ -872,75 +862,31 @@ def simulate_recourse_policy(routes, nominal_demands, dist_matrix, Q, n_iteratio
 
 
 def illustrate_recourse_policy(nominal_demands, dist_matrix, Q):
-    """
-    Illustrate the Return-to-Depot recourse policy on a route with capacity violation.
-    
-    Policy: When the vehicle cannot serve the next customer due to insufficient
-    remaining capacity, it returns to the depot to refill, then continues the route.
-    """
-    print("\n" + "=" * 70)
-    print("PART 1.2(d): RECOURSE POLICY ILLUSTRATION")
-    print("=" * 70)
-    
-    print("\n" + "-" * 70)
-    print("PROPOSED RECOURSE POLICY: 'Return-to-Depot'")
-    print("-" * 70)
-    print("""
-When executing a route, if the vehicle discovers it cannot serve the next 
-customer due to insufficient remaining capacity:
 
-  1. RETURN to depot immediately to restore full capacity (Q)
-  2. CONTINUE the route from where it left off
-  3. REPEAT if another capacity shortage occurs
-
-This policy ensures:
-  (i)   All customer demand is met
-  (ii)  Customers are visited in the original planned order  
-  (iii) Only uses information available to the vehicle (revealed demand)
-""")
-    
     # Choose Route 4: [13, 2, 24, 3, 5, 21] with nominal demand 466
-    # This route is close to capacity (478), so a 10% increase will cause violation
     route = [13, 2, 24, 3, 5, 21]
     
     # Create a demand scenario with ~10% increase (worst-case-ish)
-    # True demands: multiply each by ~1.08-1.10
     true_demands = nominal_demands.copy()
-    # Customer demands for this route (indices 13, 2, 24, 3, 5, 21)
-    # Nominal: 53, 87, 71, 73, 70, 87 = 441 (wait, let me recalculate)
-    
-    print("-" * 70)
-    print("SELECTED ROUTE AND SCENARIO")
-    print("-" * 70)
-    
-    # Print nominal demands for route
-    print(f"\nRoute 4 from Part 1.2(a): 0 → 13 → 2 → 24 → 3 → 5 → 21 → 0")
-    print(f"Vehicle Capacity Q = {Q}")
-    print(f"\nNominal customer demands on this route:")
+
+
     nominal_route_demand = 0
     for c in route:
         print(f"  Customer {c}: q_{c} = {nominal_demands[c]}")
         nominal_route_demand += nominal_demands[c]
     print(f"  Total nominal demand: {nominal_route_demand}")
     
-    # Create scenario with increased demands (simulating 10% uncertainty)
-    # We'll make demands that cause a violation
+    # Create scenario with increased demands (simulating 10% uncertainty) # Ai helped here
     scenario_multipliers = {13: 1.10, 2: 1.08, 24: 1.10, 3: 1.09, 5: 1.10, 21: 1.08}
     
     for c in route:
         true_demands[c] = int(np.ceil(nominal_demands[c] * scenario_multipliers[c]))
     
-    print(f"\nRealized (true) demands in this scenario:")
     true_route_demand = 0
     for c in route:
         print(f"  Customer {c}: q̃_{c} = {true_demands[c]} (was {nominal_demands[c]})")
         true_route_demand += true_demands[c]
-    print(f"  Total true demand: {true_route_demand}")
-    print(f"  Capacity violation: {max(0, true_route_demand - Q)} units")
-    
-    print("\n" + "-" * 70)
-    print("APPLYING THE RECOURSE POLICY")
-    print("-" * 70)
+
     
     # Simulate the route execution with recourse
     current_load = 0
@@ -948,8 +894,6 @@ This policy ensures:
     current_location = 0  # Start at depot
     step = 1
     
-    print(f"\nVehicle starts at depot (node 0) with capacity Q = {Q}")
-    print(f"Planned route: 0 → {' → '.join(map(str, route))} → 0\n")
     
     # Process each customer in route
     for customer in route:
@@ -958,10 +902,9 @@ This policy ensures:
         total_distance += distance_to_customer
         current_location = customer
         
-        print(f"Step {step}: Travel to customer {customer}")
-        print(f"         Distance: {distance_to_customer}")
-        
-        # Step 2: Demand is revealed upon arrival
+
+        # AI 
+
         customer_demand = true_demands[customer]
         print(f"         Demand revealed: q̃_{customer} = {customer_demand}")
         
@@ -973,7 +916,7 @@ This policy ensures:
             print()
         else:
             # RECOURSE: Cannot serve - must return to depot and come back
-            print(f"         ⚠️  RECOURSE TRIGGERED!")
+            print(f"         RECOURSE TRIGGERED!")
             print(f"         Cannot serve: current load {current_load} + demand {customer_demand} = {current_load + customer_demand} > {Q}")
             
             # Return to depot from current customer
@@ -1001,94 +944,27 @@ This policy ensures:
     print(f"         Distance: {distance_to_depot}")
     print(f"         Final load delivered: {current_load}")
     
-    # Calculate original planned distance (without recourse)
     original_distance = dist_matrix[0][route[0]]
     for j in range(len(route) - 1):
         original_distance += dist_matrix[route[j]][route[j+1]]
     original_distance += dist_matrix[route[-1]][0]
     
-    print("\n" + "-" * 70)
-    print("SUMMARY")
-    print("-" * 70)
-    print(f"\nOriginal planned route distance: {original_distance}")
-    print(f"Actual distance with recourse:   {total_distance}")
-    print(f"Extra distance due to recourse:  {total_distance - original_distance}")
-    print(f"\n✓ All customers served in original order")
-    print(f"✓ All demand satisfied")
-    print(f"✓ Only used information available at each step")
+ 
 
 
 if __name__ == "__main__":
     # Read the instance
+    
     Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
     
-    print("=" * 70)
-    print("CVRP ASSIGNMENT 1.2 - COMPLETE RUN")
-    print("=" * 70)
-    print(f"\nInstance loaded from 'instance.txt':")
-    print(f"  Vehicle Capacity (Q): {Q}")
-    print(f"  Number of customers: {len(demands) - 1}")
-    print(f"  Total demand: {sum(demands)}")
-    
-    # =========================================================================
     # PART 1.2(a): Two-Index Formulation
-    # =========================================================================
-    print("\n" + "=" * 70)
-    print("PART 1.2(a): Two-Index Formulation")
-    print("=" * 70)
     
-    # Set to True to re-run optimization, False to use saved solution
-    RUN_PART_A = False  # Set to True to re-run 10-minute optimization
-    
-    if RUN_PART_A:
-        result_a = solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=600)
-        print_solution(result_a, demands, dist_matrix, Q)
-    else:
-        result_a = {
-            "status": "Time Limit",
-            "objective_value": 8742.0,
-            "best_bound": 7551.0,
-            "gap": 13.60,
-            "runtime": 600.03,
-            "num_vehicles": 5,
-            "routes": [
-                [1, 11, 22, 7, 14, 25],
-                [8, 10, 6, 17, 4, 23],
-                [9],
-                [13, 2, 24, 3, 5, 21],
-                [20, 16, 12, 19, 18, 15]
-            ]
-        }
-        print("\nUsing previously computed solution:")
-        print(f"  Total Cost: {result_a['objective_value']}")
-        print(f"  Gap: {result_a['gap']:.2f}%")
-        print(f"  Vehicles: {result_a['num_vehicles']}")
-        print(f"  Runtime: {result_a['runtime']:.2f}s")
-    
-    # Save Part (a) results
-    with open("results_1_2a_two_index.csv", 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Metric', 'Value'])
-        writer.writerow(['Status', result_a['status']])
-        writer.writerow(['Objective_Value', result_a['objective_value']])
-        writer.writerow(['Best_Bound', result_a['best_bound']])
-        writer.writerow(['Optimality_Gap_pct', result_a['gap']])
-        writer.writerow(['Runtime_s', f"{result_a['runtime']:.2f}"])
-        writer.writerow(['Num_Vehicles', result_a['num_vehicles']])
-        writer.writerow([])
-        writer.writerow(['Route', 'Customers', 'Demand'])
-        for idx, route in enumerate(result_a['routes'], 1):
-            route_demand = sum(demands[c] for c in route)
-            writer.writerow([idx, ' -> '.join(map(str, route)), route_demand])
-    print("\n  Part (a) results saved to 'results_1_2a_two_index.csv'")
-    
-    # =========================================================================
+    result_a = solve_cvrp_two_index(Q, demands, dist_matrix, time_limit=600)
+    print_solution(result_a, demands, dist_matrix, Q)
+  
     # PART 1.2(b): Demand Uncertainty Simulation
-    # =========================================================================
-    print("\n" + "=" * 70)
-    print("PART 1.2(b): Demand Uncertainty Simulation")
-    print("=" * 70)
-    
+
+ 
     sim_results_b = simulate_demand_uncertainty(
         routes=result_a['routes'],
         nominal_demands=demands,
@@ -1099,29 +975,26 @@ if __name__ == "__main__":
     print_simulation_results(sim_results_b)
     save_simulation_to_csv(sim_results_b, "results_1_2b_simulation.csv")
     
-    # =========================================================================
+
     # PART 1.2(c): Scenario-Based CVRP with Cutting-Plane Algorithm
-    # =========================================================================
-    print("\n" + "=" * 70)
-    print("PART 1.2(c): Scenario-Based CVRP with Cutting-Plane Algorithm")
-    print("=" * 70)
+  
     
     cutting_plane_results = run_cutting_plane_algorithm(
         Q=Q,
         nominal_demands=demands,
         dist_matrix=dist_matrix,
         n_iterations=5,
-        time_limit=600  # 10 minutes per iteration
+        time_limit=600  
     )
     
-    # =========================================================================
-    # PART 1.2(d): Recourse Policy Illustration
-    # =========================================================================
+  
+    # PART 1.2(d): Recourse Policy Illustration 
+    # Part d and e, AI helped with idea and how to implement
     illustrate_recourse_policy(demands, dist_matrix, Q)
     
-    # =========================================================================
+   
     # PART 1.2(e): Recourse Simulation for All 5 Solutions
-    # =========================================================================
+
     recourse_results = run_recourse_simulation_from_cutting_plane(
         cutting_plane_results=cutting_plane_results,
         nominal_demands=demands,
@@ -1130,13 +1003,4 @@ if __name__ == "__main__":
         n_sim_iters=1000
     )
     
-    # =========================================================================
-    # FINAL SUMMARY
-    # =========================================================================
-    print("\n" + "=" * 70)
-    print("ALL RESULTS SAVED TO CSV FILES:")
-    print("=" * 70)
-    print("  - results_1_2a_two_index.csv")
-    print("  - results_1_2b_simulation.csv")
-    print("  - results_1_2c_cutting_plane.csv")
-    print("  - results_1_2e_recourse.csv")
+  
