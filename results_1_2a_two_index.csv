@@ -1,0 +1,14 @@
+Metric,Value
+Status,Time Limit
+Objective_Value,8742.0
+Best_Bound,7551.0
+Optimality_Gap_pct,13.6
+Runtime_s,600.03
+Num_Vehicles,5
+
+Route,Customers,Demand
+1,1 -> 11 -> 22 -> 7 -> 14 -> 25,443
+2,8 -> 10 -> 6 -> 17 -> 4 -> 23,442
+3,9,99
+4,13 -> 2 -> 24 -> 3 -> 5 -> 21,466
+5,20 -> 16 -> 12 -> 19 -> 18 -> 15,464
