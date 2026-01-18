@@ -921,28 +921,32 @@ def simulate_recourse_policy(routes, nominal_demands, dist_matrix, Q, n_iteratio
             total_cost_before += route_cost_planned
             
             # Execute route with recourse policy
+            # Key: Vehicle must TRAVEL to customer first, THEN discover demand
             current_load = 0
             current_location = 0
             route_cost_actual = 0
             
-            i = 0
-            while i < len(route):
-                next_customer = route[i]
-                next_demand = random_demands[next_customer]
+            for customer in route:
+                # Step 1: Travel to the customer (always happens first)
+                route_cost_actual += dist_matrix[current_location][customer]
+                current_location = customer
                 
-                if current_load + next_demand <= Q:
-                    # Serve the customer
-                    route_cost_actual += dist_matrix[current_location][next_customer]
-                    current_load += next_demand
-                    current_location = next_customer
-                    i += 1
+                # Step 2: Discover the true demand upon arrival
+                customer_demand = random_demands[customer]
+                
+                # Step 3: Check if we can serve
+                if current_load + customer_demand <= Q:
+                    # Can serve - just add to load
+                    current_load += customer_demand
                 else:
-                    # RECOURSE: Return to depot and refill
-                    route_cost_actual += dist_matrix[current_location][0]  # return to depot
-                    current_load = 0
-                    current_location = 0
+                    # RECOURSE: Cannot serve - return to depot and come back
+                    # Return to depot from current customer
+                    route_cost_actual += dist_matrix[customer][0]
+                    # Return to customer from depot
+                    route_cost_actual += dist_matrix[0][customer]
+                    # Now serve with fresh capacity
+                    current_load = customer_demand
                     total_recourse_actions += 1
-                    # Don't increment i - still need to serve this customer
             
             # Return to depot at end
             route_cost_actual += dist_matrix[current_location][0]
@@ -1352,44 +1356,48 @@ This policy ensures:
     print(f"\nVehicle starts at depot (node 0) with capacity Q = {Q}")
     print(f"Planned route: 0 → {' → '.join(map(str, route))} → 0\n")
     
-    i = 0  # Index in route
-    while i < len(route):
-        next_customer = route[i]
-        next_demand = true_demands[next_customer]
+    # Process each customer in route
+    for customer in route:
+        # Step 1: TRAVEL to customer first (always happens)
+        distance_to_customer = dist_matrix[current_location][customer]
+        total_distance += distance_to_customer
+        current_location = customer
         
-        # Check if we can serve the next customer
-        if current_load + next_demand <= Q:
-            # Serve the customer
-            distance_to_customer = dist_matrix[current_location][next_customer]
-            total_distance += distance_to_customer
-            current_load += next_demand
-            
-            print(f"Step {step}: Travel to customer {next_customer}")
-            print(f"         Distance: {distance_to_customer}")
-            print(f"         Demand revealed: q̃_{next_customer} = {next_demand}")
+        print(f"Step {step}: Travel to customer {customer}")
+        print(f"         Distance: {distance_to_customer}")
+        
+        # Step 2: Demand is revealed upon arrival
+        customer_demand = true_demands[customer]
+        print(f"         Demand revealed: q̃_{customer} = {customer_demand}")
+        
+        # Step 3: Check if we can serve
+        if current_load + customer_demand <= Q:
+            # Can serve normally
+            current_load += customer_demand
             print(f"         Load after service: {current_load}/{Q}")
             print()
-            
-            current_location = next_customer
-            i += 1
-            step += 1
         else:
-            # RECOURSE: Return to depot
-            print(f"Step {step}: ⚠️  RECOURSE TRIGGERED!")
-            print(f"         Cannot serve customer {next_customer} (demand {next_demand})")
-            print(f"         Current load: {current_load}, Would exceed capacity: {current_load + next_demand} > {Q}")
+            # RECOURSE: Cannot serve - must return to depot and come back
+            print(f"         ⚠️  RECOURSE TRIGGERED!")
+            print(f"         Cannot serve: current load {current_load} + demand {customer_demand} = {current_load + customer_demand} > {Q}")
             
-            distance_to_depot = dist_matrix[current_location][0]
+            # Return to depot from current customer
+            distance_to_depot = dist_matrix[customer][0]
             total_distance += distance_to_depot
+            print(f"         → Return to depot from customer {customer}, distance: {distance_to_depot}")
             
-            print(f"         → Return to depot, distance: {distance_to_depot}")
-            print(f"         → Refill vehicle (load reset to 0)")
+            # Return to customer from depot
+            distance_back = dist_matrix[0][customer]
+            total_distance += distance_back
+            print(f"         → Return to customer {customer} from depot, distance: {distance_back}")
+            print(f"         → Refill vehicle, now serve customer {customer}")
+            
+            # Now serve with fresh capacity
+            current_load = customer_demand
+            print(f"         Load after service: {current_load}/{Q}")
             print()
-            
-            current_load = 0
-            current_location = 0
-            step += 1
-            # Don't increment i - we still need to serve this customer
+        
+        step += 1
     
     # Return to depot at the end
     distance_to_depot = dist_matrix[current_location][0]
@@ -1415,7 +1423,32 @@ This policy ensures:
     print(f"✓ Only used information available at each step")
 
 
+def run_part_d_only():
+    """Run only part (d) - recourse policy illustration."""
+    Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
+    illustrate_recourse_policy(demands, dist_matrix, Q)
+
+
+def run_part_e_only():
+    """Run only part (e) - recourse simulation with saved solutions from part (c)."""
+    Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
+    run_recourse_simulation_with_saved_solutions(Q, demands, dist_matrix, n_sim_iters=1000)
+
+
 if __name__ == "__main__":
+    import sys
+    
+    # Check for command-line arguments
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "d":
+            # Run only part (d)
+            run_part_d_only()
+            sys.exit(0)
+        elif sys.argv[1] == "e":
+            # Run only part (e) with saved solutions
+            run_part_e_only()
+            sys.exit(0)
+    
     # Read the instance
     Q, demands, dist_matrix = read_cvrp_instance("instance.txt")
     
