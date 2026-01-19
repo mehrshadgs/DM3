@@ -48,8 +48,8 @@ def parse_od_pairs(filename):
 
 def build_arc_sets(arcs, nodes):
     """Build dictionaries for efficient arc lookup."""
-    outgoing = {i: [] for i in nodes}
-    incoming = {i: [] for i in nodes}
+    outgoing = {i: [] for i in nodes}       # outgoing[i] = nodes reachable from i
+    incoming = {i: [] for i in nodes}       # incoming[i] = nodes that can reach i
     arc_set = set()
     
     for (i, j, dist) in arcs:
@@ -70,16 +70,16 @@ def solve_charging_facility_location(nodes, arcs, od_pairs, Q=10, verbose=False)
     model.setParam('OutputFlag', 1 if verbose else 0)
     model.setParam('TimeLimit', 600)
     
-    y = model.addVars(N, vtype=GRB.BINARY, name="y")
+    y = model.addVars(N, vtype=GRB.BINARY, name="y")        # y[i]=1 if facility at node i
     
     x = {}
     for (i, j, dist) in arcs:
         for k in K:
             x[i, j, k] = model.addVar(lb=0, name=f"x_{i}_{j}_{k}")
     
-    model.setObjective(gp.quicksum(y[i] for i in N), GRB.MINIMIZE)
+    model.setObjective(gp.quicksum(y[i] for i in N), GRB.MINIMIZE)      # min total facilities
     
-    # Flow conservation
+    # Flow conservation：outflow - inflow = demand
     for i in N:
         for k in K:
             if i == od_pairs[k]['origin']:
@@ -151,18 +151,18 @@ def main():
         print(f"  Company {company} OD pairs: {len(all_od_pairs[company])}")
     
     # Solve for all coalitions (for Shapley value)
-    all_results = {}
+    all_results = {}        
     
     print()
     print("=" * 70)
     print("Solving for all coalitions")
     print("=" * 70)
     
-    for r in range(1, len(companies) + 1):
+    for r in range(1, len(companies) + 1):      # r = coalition size (1, 2, 3)
         for combo in combinations(companies, r):
             combo_name = '+'.join(combo)
             
-            combined_od_pairs = []
+            combined_od_pairs = []      # merge OD pairs from all companies in coalition
             for company in combo:
                 combined_od_pairs.extend(all_od_pairs[company])
             
@@ -194,15 +194,15 @@ def main():
                 print(f"{combo_name:<12} {'N/A':<15} {res['solve_time']:<12.2f} N/A")
     
     # Shapley value calculation
-    def v(coalition):
+    def v(coalition):       # cost function: facilities needed for coalition
         if len(coalition) == 0:
             return 0
         key = '+'.join(sorted(coalition))
         return all_results.get(key, {}).get('num_facilities', 0) or 0
     
-    v_A, v_B, v_C = v({'A'}), v({'B'}), v({'C'})
-    v_AB, v_AC, v_BC = v({'A', 'B'}), v({'A', 'C'}), v({'B', 'C'})
-    v_ABC = v({'A', 'B', 'C'})
+    v_A, v_B, v_C = v({'A'}), v({'B'}), v({'C'})                        # standalone costs
+    v_AB, v_AC, v_BC = v({'A', 'B'}), v({'A', 'C'}), v({'B', 'C'})      # pairwise coalitions
+    v_ABC = v({'A', 'B', 'C'})                                          # grand coalition
 
     # the coefficients are taken from the lectures slide for three-party coalitions
     '''
