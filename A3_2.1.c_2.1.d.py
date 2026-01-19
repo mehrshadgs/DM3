@@ -94,12 +94,20 @@ def solve_charging_facility_location(nodes, arcs, od_pairs, Q=10, verbose=False)
             model.addConstr(outflow - inflow == d_ik, name=f"flow_{i}_{k}")
     
     # Flow requires facility at intermediate nodes
+    '''
+    with the help of Claude to exclude destination nodes following the charging logic
+    '''
     for (i, j, dist) in arcs:
         for k in K:
             if j != od_pairs[k]['destination']:
                 model.addConstr(x[i, j, k] <= y[j], name=f"facility_{i}_{j}_{k}")
     
     # Capacity constraint (exclude flow arriving at destination)
+    '''
+    Only counting flows that require recharging.
+    Exclude the flow arriving at the final destination to avoid overcounting capacity.
+    With the help of Claude to improve codes and 
+    '''
     for i in N:
         total_inflow = gp.quicksum(
             x[j, i, k] 
@@ -195,7 +203,11 @@ def main():
     v_A, v_B, v_C = v({'A'}), v({'B'}), v({'C'})
     v_AB, v_AC, v_BC = v({'A', 'B'}), v({'A', 'C'}), v({'B', 'C'})
     v_ABC = v({'A', 'B', 'C'})
-    
+
+    # the coefficients are taken from the lectures slide for three-party coalitions
+    '''
+    with the help of Claude to type the equations and the following "print" liens
+    '''
     phi_A = (1/3)*v_A + (1/6)*(v_AB - v_B) + (1/6)*(v_AC - v_C) + (1/3)*(v_ABC - v_BC)
     phi_B = (1/3)*v_B + (1/6)*(v_AB - v_A) + (1/6)*(v_BC - v_C) + (1/3)*(v_ABC - v_AC)
     phi_C = (1/3)*v_C + (1/6)*(v_AC - v_A) + (1/6)*(v_BC - v_B) + (1/3)*(v_ABC - v_AB)
