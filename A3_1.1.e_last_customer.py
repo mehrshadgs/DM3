@@ -13,15 +13,6 @@ import time
 def parse_routes(filename):
     """
     Parse the routes file and extract route information.
-    
-    Each line format: distance load 0 customer1 customer2 ... customerN 0
-    
-    Returns:
-        routes: list of dictionaries, each containing:
-            - 'distance': route distance (also used as cost)
-            - 'load': total demand on the route
-            - 'customers': list of customers visited (excluding depot)
-            - 'last_customer': the last customer before returning to depot
     """
     routes = []
     
@@ -47,9 +38,9 @@ def parse_routes(filename):
                 last_customer = None  # Empty route (shouldn't happen)
             
             routes.append({
-                'distance': distance,
-                'load': load,
-                'customers': customers,
+                'distance': distance,           # route distance
+                'load': load,                   # total demand on the route
+                'customers': customers,         # list of customers visited (excluding depot)
                 'last_customer': last_customer
             })
     
@@ -62,16 +53,6 @@ def parse_routes(filename):
 def build_parameters(routes, num_customers):
     """
     Build the parameters needed for the Last-Customer Formulation.
-    
-    Parameters:
-        routes: list of route dictionaries from parse_routes()
-        num_customers: number of customers (excluding depot)
-    
-    Returns:
-        p: dict, p[r] = distance of route r
-        c: dict, c[r] = cost of route r (same as distance)
-        a: dict, a[i,r] = 1 if customer i is visited by route r
-        b: dict, b[i,r] = 1 if customer i is the last customer on route r
     """
     R = range(len(routes))  # Route indices
     N = range(1, num_customers + 1)  # Customer indices (1 to n)
@@ -98,8 +79,10 @@ def build_parameters(routes, num_customers):
 # =============================================================================
 # STEP 3: z* from Question 1.1.a (already computed)
 # =============================================================================
-# The optimal cost z* = 8831.0 was obtained from solving the basic CVRP
-# in Question 1.1(a). We use this value directly.
+'''
+The optimal cost z* = 8831.0 was obtained from solving the basic CVRP in Question 1.1(a). 
+We use this value directly.
+'''
 Z_STAR = 8831.0
 
 
@@ -118,16 +101,8 @@ def solve_last_customer_formulation(routes, num_customers, num_vehicles, z_star,
         (1d) Select exactly |K| routes
         (1e) eta >= distance of each selected route (via last customer)
         (1f) gamma <= distance of each selected route (via last customer)
-    
-    Parameters:
-        routes: list of route dictionaries
-        num_customers: number of customers
-        num_vehicles: number of vehicles
-        z_star: optimal cost from CVRP (question 1.1.a)
-        epsilon: allowed cost increase ratio
-    
-    Returns:
-        Dictionary containing results
+
+    With the help of Claude to form the equation of constraints and type the lines with the word "results"
     """
     R = range(len(routes))
     N = range(1, num_customers + 1)
@@ -183,7 +158,6 @@ def solve_last_customer_formulation(routes, num_customers, num_vehicles, z_star,
         )
     
     # Constraint (1f): gamma <= distance of each selected route (via last customer)
-    # M * (1 - sum_r(b[i,r] * x[r])) + sum_r(p[r] * b[i,r] * x[r]) >= gamma
     for i in N:
         model.addConstr(
             M * (1 - gp.quicksum(b[i, r] * x[r] for r in R)) +
@@ -225,8 +199,11 @@ def solve_last_customer_formulation(routes, num_customers, num_vehicles, z_star,
 
 
 # =============================================================================
-# STEP 5: Main function - Run experiments for all epsilon values
+# STEP 5: Main function - Run for all epsilon values
 # =============================================================================
+'''
+Output forming is with help of CLaude (these lines with the word "print")
+'''
 def main():
     # Configuration
     routes_file = "routes.txt"
